@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LluviaCheck - Precisión Meteorológica</title>
+
+    <!-- Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons: Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- PWA / Mobile Capable -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0b1e">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-background"></div>
+    <div class="glass-overlay"></div>
+
+    <main class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <i class="ph-fill ph-drop logo-icon"></i>
+                <h1>LluviaCheck</h1>
+            </div>
+            <div class="search-bar">
+                <i class="ph ph-magnifying-glass"></i>
+                <input type="text" id="cityInput" placeholder="Buscar localidad (ej: Madrid)..." value="Madrid">
+                <button id="searchBtn">Buscar</button>
+            </div>
+            <div style="margin-left: auto; color: var(--text-secondary); font-size: 0.8rem;">
+                Actualizado: <span id="lastUpdated">--:--</span>
+            </div>
+        </header>
+
+        <!-- Main Dashboard -->
+        <section class="dashboard" id="dashboard">
+            <!-- Left Column: Current Status -->
+            <div class="current-weather glass-card">
+                <div class="weather-header">
+                    <h2 id="locationName">Madrid, ES</h2>
+                    <span class="live-badge">EN VIVO</span>
+                </div>
+
+                <div class="weather-main">
+                    <div class="temp-container">
+                        <span id="currentTemp" class="temp-value">--</span>
+                        <span class="temp-unit">°C</span>
+                    </div>
+                    <div class="weather-icon-container">
+                        <i id="weatherIcon" class="ph-fill ph-cloud-rain sun-icon"></i>
+                        <p id="weatherDesc">Cargando...</p>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <i class="ph ph-drop-half"></i>
+                        <div>
+                            <span class="label">Lluvia (1h)</span>
+                            <span id="rain1h" class="value">-- mm</span>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <i class="ph ph-wind"></i>
+                        <div>
+                            <span class="label">Viento</span>
+                            <span id="windSpeed" class="value">-- km/h</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Charts -->
+            <div class="rain-analysis glass-card">
+                <div class="card-header">
+                    <h3>Análisis de Precipitación</h3>
+                    <div class="tabs">
+                        <button class="tab active" data-view="24h">24 Horas</button>
+                        <!-- Future: <button class="tab" data-view="7d">7 Días</button> -->
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="rainChart"></canvas>
+                </div>
+            </div>
+
+
+        </section>
+    </main>
+
+    <script src="js/script.js"></script>
+</body>
+
+</html>
