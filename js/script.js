@@ -118,6 +118,56 @@ function getWeatherConfig(code) {
     return { desc: "Nublado", icon: "ph-cloud" };
 }
 
+async function getBrowserLocation() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error("Geolocalización no soportada por el navegador."));
+        } else {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    resolve({
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude
+                    });
+                },
+                (error) => {
+                    reject(error);
+                }
+            );
+        }
+    });
+}
+
+async function reverseGeocode(lat, lon) {
+    try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+        const data = await response.json();
+        const address = data.address;
+        return address.city || address.town || address.village || address.municipality || "Ubicación desconocida";
+    } catch (error) {
+        console.error("Reverse Geocoding Error:", error);
+        return "Ubicación Actual";
+    }
+}
+
+
+
+async function updateWeatherByCoords(lat, lon) {
+    try {
+        const [weatherData, cityName] = await Promise.all([
+            getRealWeatherData(lat, lon),
+            reverseGeocode(lat, lon)
+        ]);
+        currentCity = cityName;
+        locationName.textContent = `${cityName}`;
+        updateUIWithData(weatherData); // Re-use UI update logic
+    } catch (error) {
+        console.error(error);
+        locationName.textContent = "Error";
+    }
+    updateTimestamp();
+}
+
 /* --- UI CONTROLLER --- */
 
 const cityInput = document.getElementById('cityInput');
@@ -127,6 +177,7 @@ const currentTemp = document.getElementById('currentTemp');
 const weatherDesc = document.getElementById('weatherDesc');
 const weatherIcon = document.getElementById('weatherIcon');
 const rain1h = document.getElementById('rain1h');
+
 const windSpeed = document.getElementById('windSpeed');
 
 let rainChartInstance = null;
@@ -143,6 +194,16 @@ async function init() {
     });
 
     await updateWeather(currentCity);
+
+    // Try Automatic Geolocation first
+    try {
+        console.log("Requesting Location...");
+        const coords = await getBrowserLocation();
+        await updateWeatherByCoords(coords.lat, coords.lon);
+    } catch (error) {
+        console.warn("Location access denied or failed, falling back to default.", error);
+        // If getting location fails, we stick to the initial UpdateWeather(currentCity) call or ensured above.
+    }
 
     // Auto-refresh every 1 hour (3600000 ms)
     setInterval(() => {
@@ -174,30 +235,37 @@ async function updateWeather(city) {
 
         const weatherData = await getRealWeatherData(location.latitude, location.longitude);
 
-        const current = weatherData.current;
-        currentTemp.textContent = Math.round(current.temperature_2m);
-        windSpeed.textContent = `${current.wind_speed_10m} km/h`;
+        updateUIWithData(weatherData);
 
-        const nowIso = new Date().toISOString().slice(0, 13);
-        const hourIdx = weatherData.hourly.time.findIndex(t => t.startsWith(nowIso));
-        const currentRainAmount = hourIdx !== -1 ? weatherData.hourly.rain[hourIdx] : 0;
-        rain1h.textContent = `${currentRainAmount} mm`;
-
-        const config = getWeatherConfig(current.weather_code);
-        weatherDesc.textContent = config.desc;
-        weatherIcon.className = `ph-fill ${config.icon}`;
-
-        const chartData = processChartData(weatherData);
-        updateChart(chartData);
-
-
+        currentCity = city;
 
     } catch (error) {
         console.error(error);
         locationName.textContent = "Error";
     }
 
-    // Update timestamp
+    updateTimestamp();
+}
+
+function updateUIWithData(weatherData) {
+    const current = weatherData.current;
+    currentTemp.textContent = Math.round(current.temperature_2m);
+    windSpeed.textContent = `${current.wind_speed_10m} km/h`;
+
+    const nowIso = new Date().toISOString().slice(0, 13);
+    const hourIdx = weatherData.hourly.time.findIndex(t => t.startsWith(nowIso));
+    const currentRainAmount = hourIdx !== -1 ? weatherData.hourly.rain[hourIdx] : 0;
+    rain1h.textContent = `${currentRainAmount} mm`;
+
+    const config = getWeatherConfig(current.weather_code);
+    weatherDesc.textContent = config.desc;
+    weatherIcon.className = `ph-fill ${config.icon}`;
+
+    const chartData = processChartData(weatherData);
+    updateChart(chartData);
+}
+
+function updateTimestamp() {
     const now = new Date();
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const lastUpdEl = document.getElementById('lastUpdated');
@@ -240,6 +308,52 @@ function updateChart({ labels, rainData, probData, currentRelIndex }) {
         }
     };
 
+    // Custom Plugin for Hourly Data Labels
+    const hourlyDetailsPlugin = {
+        id: 'hourlyDetails',
+        defaults: {
+            display: false
+        },
+        afterDatasetsDraw(chart, args, options) {
+            if (!options.display) return;
+
+            const { ctx } = chart;
+
+            // Dataset 0: Rain (Bar), Dataset 1: Prob (Line)
+            const metaRain = chart.getDatasetMeta(0);
+            const metaProb = chart.getDatasetMeta(1);
+
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.font = 'bold 12px Inter';
+
+            metaRain.data.forEach((element, index) => {
+                // Skip if hidden
+                if (element.hidden) return;
+
+                // 1. Draw Rain Amount (mm) inside or above bar
+                const rainVal = chart.data.datasets[0].data[index];
+                if (rainVal !== null && rainVal > 0) {
+                    ctx.fillStyle = '#00f2ff'; // Cyan
+                    // Draw slightly above the bar
+                    ctx.fillText(`${rainVal}mm`, element.x, element.y - 5);
+                }
+
+                // 2. Draw Probability (%) above everything (top of chart area usually, or following line)
+                const probVal = chart.data.datasets[1].data[index];
+                const probPoint = metaProb.data[index];
+                if (probPoint && probVal !== null) {
+                    ctx.fillStyle = '#7000ff'; // Purple
+                    // Draw above the point
+                    ctx.fillText(`${probVal}%`, probPoint.x, probPoint.y - 10);
+                }
+            });
+
+            ctx.restore();
+        }
+    };
+
     rainChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -261,7 +375,8 @@ function updateChart({ labels, rainData, probData, currentRelIndex }) {
                     backgroundColor: 'rgba(112, 0, 255, 0.1)',
                     yAxisID: 'y1',
                     tension: 0.4,
-                    pointRadius: 0
+                    pointRadius: 4, // Make points visible in detailed view (will toggle size later if needed)
+                    pointBackgroundColor: '#1a237e'
                 }
             ]
         },
@@ -278,6 +393,9 @@ function updateChart({ labels, rainData, probData, currentRelIndex }) {
                 },
                 nowLine: {
                     index: currentRelIndex // Pass the calculated index to the plugin
+                },
+                hourlyDetails: {
+                    display: false // Default off (24h view)
                 }
             },
             scales: {
@@ -296,13 +414,114 @@ function updateChart({ labels, rainData, probData, currentRelIndex }) {
                     type: 'linear',
                     display: true,
                     position: 'right',
+                    min: 0,
+                    max: 100,
                     grid: { drawOnChartArea: false },
-                    ticks: { color: '#7000ff' }
+                    ticks: {
+                        color: '#7000ff',
+                        stepSize: 10
+                    }
                 }
             }
         },
-        plugins: [nowLinePlugin]
+        plugins: [nowLinePlugin, hourlyDetailsPlugin]
     });
+}
+
+function switchView(viewType) {
+    const chartContainer = document.getElementById('chartContainer');
+    const chartScrollWrapper = document.getElementById('chartScrollWrapper');
+    const tabs = document.querySelectorAll('.tab');
+
+    // Update Tabs UI
+    tabs.forEach(t => {
+        if (t.dataset.view === viewType) t.classList.add('active');
+        else t.classList.remove('active');
+    });
+
+    if (viewType === 'hourly') {
+        chartContainer.classList.add('scroll-active');
+        chartScrollWrapper.classList.add('expanded');
+
+        // Enable detailed labels
+        if (rainChartInstance) {
+            rainChartInstance.options.plugins.hourlyDetails.display = true;
+            rainChartInstance.update(); // Update to render labels and new size
+            // Resize logic is handled by Chart.js observing container, but sometimes needs explicit call if container animates
+            rainChartInstance.resize();
+        }
+
+        // Auto-scroll to "Now"
+        setTimeout(() => {
+            scrollToCurrentTime();
+        }, 350);
+
+    } else {
+        chartContainer.classList.remove('scroll-active');
+        chartScrollWrapper.classList.remove('expanded');
+
+        // Disable detailed labels
+        if (rainChartInstance) {
+            rainChartInstance.options.plugins.hourlyDetails.display = false;
+            rainChartInstance.update();
+            rainChartInstance.resize();
+        }
+
+        chartContainer.scrollLeft = 0;
+    }
+}
+
+function scrollToCurrentTime() {
+    if (!rainChartInstance) return;
+
+    // We stored the currentRelIndex in the plugin options during updateChart
+    const currentIndex = rainChartInstance.options.plugins.nowLine.index;
+
+    // Total data points usually 24 (or active length)
+    // We can infer total points from data labels length
+    const totalPoints = rainChartInstance.data.labels.length;
+
+    if (currentIndex >= 0 && totalPoints > 0) {
+        const container = document.getElementById('chartContainer');
+        const scrollWidth = container.scrollWidth;
+        const clientWidth = container.clientWidth;
+
+        // Approximate pixel position of the bar center
+        const barWidth = scrollWidth / totalPoints;
+        const targetX = (currentIndex * barWidth) - (clientWidth / 2) + (barWidth / 2);
+
+        container.scrollTo({
+            left: targetX,
+            behavior: 'smooth'
+        });
+    }
+}
+
+
+async function init() {
+    console.log("App Initializing...");
+
+    // Create Last Updated Element if not exists (checked dynamically or added to HTML)
+
+    searchBtn.addEventListener('click', handleSearch);
+    cityInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSearch();
+    });
+
+    // Tab Event Listeners
+    document.querySelectorAll('.tab').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            switchView(e.target.dataset.view);
+        });
+    });
+
+    await updateWeather(currentCity);
+
+    // Auto-refresh every 1 hour (3600000 ms)
+    setInterval(() => {
+        console.log(`Auto-refreshing weather for: ${currentCity}`);
+        updateWeather(currentCity);
+    }, 3600000);
 }
 
 // Fire init when DOM is ready

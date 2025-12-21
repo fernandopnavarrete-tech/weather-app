@@ -35,7 +35,7 @@ body {
     width: 100%;
     height: 100%;
     z-index: -2;
-    background: 
+    background:
         radial-gradient(circle at 15% 50%, rgba(112, 0, 255, 0.15) 0%, transparent 25%),
         radial-gradient(circle at 85% 30%, rgba(0, 242, 255, 0.15) 0%, transparent 25%);
 }
@@ -47,7 +47,8 @@ body {
     width: 100%;
     height: 100%;
     z-index: -1;
-    backdrop-filter: blur(100px); /* Extreme blur for soft ambient light */
+    backdrop-filter: blur(100px);
+    /* Extreme blur for soft ambient light */
     opacity: 0.5;
 }
 
@@ -133,118 +134,125 @@ body {
     transform: scale(1.05);
 }
 
-/* Dashboard Grid */
-.dashboard {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    grid-template-rows: auto auto;
-    gap: 2rem;
-}
-
-/* Glass Card Common */
-.glass-card {
-    background: linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
-    border: 1px solid var(--glass-border);
-    backdrop-filter: blur(20px);
-    border-radius: var(--card-radius);
-    padding: 2rem;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-/* Current Weather */
+/* Compact Weather Header */
 .current-weather {
     display: flex;
     flex-direction: column;
+    gap: 1.5rem;
+    /* Make it span full width on mobile/desktop if needed, or stick to grid */
+}
+
+/* Override Dashboard Grid to be Stacked (Mobile First) or Keep 2 Columns? 
+   User wants Chart visible. If current weather is small, 
+   we can keep 2 columns on Desktop, but on Mobile it will be just a small card on top.
+*/
+/* Dashboard Grid - Vertical Stack for Mobile Priority */
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    /* Key: Force vertical order: Location -> Chart -> Stats */
+    gap: 1.5rem;
+}
+
+/* On Desktop, we can make the chart bigger but keep order, or side-by-side if preferred. 
+   But user asked to prioritize Chart. Let's keep a nice vertical flow or a specific grid.
+   Let's keep it simple: Full width blocks. 
+*/
+
+/* Location Header only needs small padding if it's just text */
+.location-only {
+    padding: 1.5rem 2rem;
+}
+
+.weather-header {
+    display: flex;
+    align-items: center;
     justify-content: space-between;
 }
 
 .weather-header h2 {
     font-family: var(--font-heading);
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+    margin: 0;
 }
 
-.live-badge {
-    background: rgba(255, 0, 0, 0.2);
-    color: #ff4d4d;
-    font-size: 0.75rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 100px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    border: 1px solid rgba(255, 0, 0, 0.3);
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(255, 77, 77, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
-}
-
-.weather-main {
-    margin: 2rem 0;
-    text-align: center;
-}
-
-.temp-container {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-}
-
-.temp-value {
-    font-family: var(--font-heading);
-    font-size: 6rem;
-    font-weight: 700;
-    line-height: 1;
-    background: linear-gradient(to bottom, #fff, #aaa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.temp-unit {
-    font-size: 2rem;
-    margin-top: 1rem;
-    color: var(--text-secondary);
-}
-
-.weather-icon-container i {
-    font-size: 4rem;
-    margin-bottom: 0.5rem;
-    background: linear-gradient(45deg, var(--primary-neon), var(--secondary-neon));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.stats-grid {
+.compact-stats-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    /* 2x2 Grid on mobile */
     gap: 1rem;
 }
 
-.stat-item {
-    background: rgba(255, 255, 255, 0.03);
+@media (min-width: 600px) {
+    .compact-stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+        /* 4 in a row on tablet/desktop */
+    }
+}
+
+.stat-item.compact {
+    background: rgba(255, 255, 255, 0.05);
+    /* Slightly lighter */
     padding: 1rem;
     border-radius: 16px;
     display: flex;
+    flex-direction: column;
+    /* Icon top, Text bottom */
     align-items: center;
-    gap: 1rem;
+    text-align: center;
+    gap: 0.5rem;
+    transition: transform 0.2s;
 }
 
-.stat-item i {
+.stat-item.compact:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.stat-item.compact i {
     font-size: 1.5rem;
     color: var(--primary-neon);
+    margin-bottom: 0.2rem;
 }
 
-.stat-item div {
-    display: flex;
-    flex-direction: column;
+/* Specific color for weather icon to stand out */
+#weatherIcon {
+    background: linear-gradient(45deg, var(--primary-neon), var(--secondary-neon));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 2rem;
+    /* bit bigger */
 }
 
-.stat-item .label {
-    font-size: 0.8rem;
+.stat-item.compact .label {
+    font-size: 0.75rem;
     color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-item.compact .value {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.stat-item.compact .value-text {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.unit {
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    margin-left: 2px;
 }
 
 /* Rain Analysis Chart */
@@ -277,7 +285,40 @@ body {
 .chart-container {
     flex-grow: 1;
     position: relative;
-    min-height: 300px;
+    height: 450px;
+    min-height: 450px;
+    width: 100%;
+    /* Default: hidden overflow for 24h view */
+    overflow-x: hidden;
+}
+
+/* When in scroll mode (applied via JS "scroll-active" class on container) */
+.chart-container.scroll-active {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* smooth scrolling on iOS */
+    cursor: grab;
+}
+
+.chart-container.scroll-active:active {
+    cursor: grabbing;
+}
+
+.chart-scroll-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transition: width 0.3s ease;
+}
+
+/* When expanded for hourly view */
+.chart-scroll-wrapper.expanded {
+    /* 
+       We want to show ~5 hours out of 24.
+       24 / 5 = 4.8 screen widths.
+       Let's use 480% width.
+    */
+    width: 480%;
 }
 
 /* Sources Grid */
@@ -303,7 +344,7 @@ body {
 
 .source-card:hover {
     transform: translateY(-5px);
-    border-color: rgba(255,255,255,0.2);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .source-card.active-source {
@@ -334,7 +375,7 @@ body {
     justify-content: space-between;
     margin-bottom: 0.5rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .data-row:last-child {

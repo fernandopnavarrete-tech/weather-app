@@ -41,7 +41,7 @@
             </div>
             <div class="search-bar">
                 <i class="ph ph-magnifying-glass"></i>
-                <input type="text" id="cityInput" placeholder="Buscar localidad (ej: Madrid)..." value="Madrid">
+                <input type="text" id="cityInput" placeholder="Buscar localidad (ej: Madrid)..." value="">
                 <button id="searchBtn">Buscar</button>
             </div>
             <div style="margin-left: auto; color: var(--text-secondary); font-size: 0.8rem;">
@@ -52,33 +52,44 @@
         <!-- Main Dashboard -->
         <section class="dashboard" id="dashboard">
             <!-- Left Column: Current Status -->
+            <!-- Compact Header: Location + 4 Stats -->
             <div class="current-weather glass-card">
                 <div class="weather-header">
                     <h2 id="locationName">Madrid, ES</h2>
-                    <span class="live-badge">EN VIVO</span>
+
                 </div>
 
-                <div class="weather-main">
-                    <div class="temp-container">
-                        <span id="currentTemp" class="temp-value">--</span>
-                        <span class="temp-unit">°C</span>
+                <div class="compact-stats-grid">
+                    <!-- Temp -->
+                    <div class="stat-item compact">
+                        <i class="ph-fill ph-thermometer-simple"></i>
+                        <div>
+                            <span class="label">Temp</span>
+                            <span class="value"><span id="currentTemp">--</span><span class="unit">°C</span></span>
+                        </div>
                     </div>
-                    <div class="weather-icon-container">
-                        <i id="weatherIcon" class="ph-fill ph-cloud-rain sun-icon"></i>
-                        <p id="weatherDesc">Cargando...</p>
-                    </div>
-                </div>
 
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <i class="ph ph-drop-half"></i>
+                    <!-- Condition (Icon) -->
+                    <div class="stat-item compact">
+                        <i id="weatherIcon" class="ph-fill ph-question"></i>
+                        <div>
+                            <span class="label">Estado</span>
+                            <span id="weatherDesc" class="value-text">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Rain 1h -->
+                    <div class="stat-item compact">
+                        <i class="ph-fill ph-drop-half"></i>
                         <div>
                             <span class="label">Lluvia (1h)</span>
                             <span id="rain1h" class="value">-- mm</span>
                         </div>
                     </div>
-                    <div class="stat-item">
-                        <i class="ph ph-wind"></i>
+
+                    <!-- Wind -->
+                    <div class="stat-item compact">
+                        <i class="ph-fill ph-wind"></i>
                         <div>
                             <span class="label">Viento</span>
                             <span id="windSpeed" class="value">-- km/h</span>
@@ -93,11 +104,13 @@
                     <h3>Análisis de Precipitación</h3>
                     <div class="tabs">
                         <button class="tab active" data-view="24h">24 Horas</button>
-                        <!-- Future: <button class="tab" data-view="7d">7 Días</button> -->
+                        <button class="tab" data-view="hourly">Hora a Hora</button>
                     </div>
                 </div>
-                <div class="chart-container">
-                    <canvas id="rainChart"></canvas>
+                <div class="chart-container" id="chartContainer">
+                    <div class="chart-scroll-wrapper" id="chartScrollWrapper">
+                        <canvas id="rainChart"></canvas>
+                    </div>
                 </div>
             </div>
 
