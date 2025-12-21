@@ -193,19 +193,32 @@ async function init() {
         if (e.key === 'Enter') handleSearch();
     });
 
-    await updateWeather(currentCity);
+    // Tab Event Listeners
+    document.querySelectorAll('.tab').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            switchView(e.target.dataset.view);
+        });
+    });
 
-    // Ask for permission once via interaction
+    let loaded = false;
+
+    // Ask for permission IMMEDIATELY
     if (confirm("¿Deseas activar la geolocalización para mostrar el tiempo de tu zona?")) {
         try {
             const coords = await getBrowserLocation();
             await updateWeatherByCoords(coords.lat, coords.lon);
             // Clear input if successful
             cityInput.value = "";
+            loaded = true;
         } catch (error) {
             console.warn("Location error:", error);
-            alert("No se pudo obtener la ubicación. Comprueba los permisos de tu navegador.");
+            alert("No se pudo obtener la ubicación. Se cargará Madrid por defecto.");
         }
+    }
+
+    // Fallback: If not loaded (User cancelled OR Error occurred)
+    if (!loaded) {
+        await updateWeather(currentCity);
     }
 
     // Auto-refresh every 1 hour (3600000 ms)
