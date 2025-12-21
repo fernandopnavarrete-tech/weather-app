@@ -179,6 +179,7 @@ const weatherIcon = document.getElementById('weatherIcon');
 const rain1h = document.getElementById('rain1h');
 
 const windSpeed = document.getElementById('windSpeed');
+const locationBtn = document.getElementById('locationBtn');
 
 let rainChartInstance = null;
 let currentCity = "Madrid";
@@ -189,6 +190,8 @@ async function init() {
     // Create Last Updated Element if not exists (checked dynamically or added to HTML)
 
     searchBtn.addEventListener('click', handleSearch);
+    locationBtn.addEventListener('click', handleLocationClick);
+
     cityInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleSearch();
     });
@@ -200,32 +203,29 @@ async function init() {
         });
     });
 
-    let loaded = false;
-
-    // Ask for permission IMMEDIATELY
-    if (confirm("¿Deseas activar la geolocalización para mostrar el tiempo de tu zona?")) {
-        try {
-            const coords = await getBrowserLocation();
-            await updateWeatherByCoords(coords.lat, coords.lon);
-            // Clear input if successful
-            cityInput.value = "";
-            loaded = true;
-        } catch (error) {
-            console.warn("Location error:", error);
-            alert("No se pudo obtener la ubicación. Se cargará Madrid por defecto.");
-        }
-    }
-
-    // Fallback: If not loaded (User cancelled OR Error occurred)
-    if (!loaded) {
-        await updateWeather(currentCity);
-    }
+    // Load default city
+    await updateWeather(currentCity);
 
     // Auto-refresh every 1 hour (3600000 ms)
     setInterval(() => {
         console.log(`Auto-refreshing weather for: ${currentCity}`);
         updateWeather(currentCity);
     }, 3600000);
+}
+
+async function handleLocationClick() {
+    const orgHtml = locationBtn.innerHTML;
+    locationBtn.innerHTML = '<i class="ph ph-spinner ph-spin"></i>';
+    try {
+        const coords = await getBrowserLocation();
+        await updateWeatherByCoords(coords.lat, coords.lon);
+        // Clear input to reflect we are using current loc
+        cityInput.value = "";
+    } catch (err) {
+        alert("No se pudo obtener la ubicación: " + err.message);
+    } finally {
+        locationBtn.innerHTML = orgHtml;
+    }
 }
 
 async function handleSearch() {

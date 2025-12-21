@@ -134,6 +134,23 @@ body {
     transform: scale(1.05);
 }
 
+#locationBtn {
+    background: transparent;
+    border: none;
+    color: var(--primary-neon);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 0.5rem;
+    transition: transform 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+#locationBtn:hover {
+    transform: scale(1.1);
+    color: #fff;
+}
+
 /* Compact Weather Header */
 .current-weather {
     display: flex;
