@@ -195,14 +195,17 @@ async function init() {
 
     await updateWeather(currentCity);
 
-    // Try Automatic Geolocation first
-    try {
-        console.log("Requesting Location...");
-        const coords = await getBrowserLocation();
-        await updateWeatherByCoords(coords.lat, coords.lon);
-    } catch (error) {
-        console.warn("Location access denied or failed, falling back to default.", error);
-        // If getting location fails, we stick to the initial UpdateWeather(currentCity) call or ensured above.
+    // Ask for permission once via interaction
+    if (confirm("¿Deseas activar la geolocalización para mostrar el tiempo de tu zona?")) {
+        try {
+            const coords = await getBrowserLocation();
+            await updateWeatherByCoords(coords.lat, coords.lon);
+            // Clear input if successful
+            cityInput.value = "";
+        } catch (error) {
+            console.warn("Location error:", error);
+            alert("No se pudo obtener la ubicación. Comprueba los permisos de tu navegador.");
+        }
     }
 
     // Auto-refresh every 1 hour (3600000 ms)
