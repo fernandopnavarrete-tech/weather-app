@@ -182,7 +182,7 @@ const windSpeed = document.getElementById('windSpeed');
 const locationBtn = document.getElementById('locationBtn');
 
 let rainChartInstance = null;
-let currentCity = "Madrid";
+let currentCity = "Madrigal de la Vera";
 
 async function init() {
     console.log("App Initializing...");
