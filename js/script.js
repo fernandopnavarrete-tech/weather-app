@@ -146,7 +146,7 @@ async function reverseGeocode(lat, lon) {
         return address.city || address.town || address.village || address.municipality || "Ubicación desconocida";
     } catch (error) {
         console.error("Reverse Geocoding Error:", error);
-        return "Ubicación Actual";
+        return "Ubicación Local"; // Fallback instead of failing
     }
 }
 
@@ -154,16 +154,24 @@ async function reverseGeocode(lat, lon) {
 
 async function updateWeatherByCoords(lat, lon) {
     try {
-        const [weatherData, cityName] = await Promise.all([
-            getRealWeatherData(lat, lon),
-            reverseGeocode(lat, lon)
-        ]);
+        // Fetch weather first (Critical)
+        const weatherData = await getRealWeatherData(lat, lon);
+
+        // Try to get name, but don't block if it fails
+        let cityName = "Ubicación Detectada";
+        try {
+            cityName = await reverseGeocode(lat, lon);
+        } catch (e) {
+            console.warn("Could not retrieve city name", e);
+        }
+
         currentCity = cityName;
         locationName.textContent = `${cityName}`;
         updateUIWithData(weatherData); // Re-use UI update logic
     } catch (error) {
         console.error(error);
         locationName.textContent = "Error";
+        throw error; // Re-throw to be caught by the button handler
     }
     updateTimestamp();
 }
@@ -551,8 +559,9 @@ function initPullToRefresh() {
     const threshold = 100; // px to trigger refresh
 
     document.addEventListener('touchstart', (e) => {
-        // Only trigger if at top of page
-        if (window.scrollY === 0) {
+        // Only trigger if at top of page. Check both window and document element for compatibility.
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        if (scrollTop <= 0) {
             startY = e.touches[0].clientY;
             isPulling = true;
             // No transition while pulling for instant feedback
@@ -600,7 +609,9 @@ function initPullToRefresh() {
 
         const diff = currentY - startY;
 
-        if (diff > threshold && window.scrollY === 0) {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+
+        if (diff > threshold && scrollTop <= 0) {
             // Trigger Refresh
             refreshIndicator.classList.add('visible');
             refreshIndicator.classList.add('loading');

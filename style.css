@@ -25,6 +25,12 @@ body {
     font-family: var(--font-body);
     min-height: 100vh;
     overflow-x: hidden;
+    overscroll-behavior-y: none;
+    /* Prevent native bounce in PWA which kills pull-to-refresh */
+}
+
+html {
+    overscroll-behavior-y: none;
 }
 
 /* Background Effects */
@@ -277,6 +283,7 @@ body {
 /* Specific color for weather icon to stand out */
 #weatherIcon {
     background: linear-gradient(45deg, var(--primary-neon), var(--secondary-neon));
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-size: 2rem;
