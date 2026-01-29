@@ -177,6 +177,7 @@ const currentTemp = document.getElementById('currentTemp');
 const weatherDesc = document.getElementById('weatherDesc');
 const weatherIcon = document.getElementById('weatherIcon');
 const rain1h = document.getElementById('rain1h');
+const refreshIndicator = document.getElementById('refresh-indicator'); // Added for Pull to Refresh
 
 const windSpeed = document.getElementById('windSpeed');
 const locationBtn = document.getElementById('locationBtn');
@@ -533,11 +534,114 @@ async function init() {
 
     await updateWeather(currentCity);
 
+    // Initialize Pull to Refresh
+    initPullToRefresh();
+
     // Auto-refresh every 1 hour (3600000 ms)
     setInterval(() => {
         console.log(`Auto-refreshing weather for: ${currentCity}`);
         updateWeather(currentCity);
     }, 3600000);
+}
+
+function initPullToRefresh() {
+    let startY = 0;
+    let currentY = 0; // Track current Y to calculate distance correctly
+    let isPulling = false;
+    const threshold = 100; // px to trigger refresh
+
+    document.addEventListener('touchstart', (e) => {
+        // Only trigger if at top of page
+        if (window.scrollY === 0) {
+            startY = e.touches[0].clientY;
+            isPulling = true;
+            // No transition while pulling for instant feedback
+            refreshIndicator.style.transition = 'none';
+        } else {
+            isPulling = false;
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!isPulling) return;
+
+        currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+
+        // Only allow pulling down (positive diff)
+        if (diff > 0) {
+            // Visualize the pull
+            // Add resistance: log or sqrt
+            const resistance = Math.min(diff * 0.4, 150); // Cap max pull
+
+            // Move the indicator down into view (it starts at -100px)
+            // We want it to appear as we pull. 
+            // -100 + resistance (e.g. up to 150) -> max 50px
+            const topPos = -100 + resistance;
+
+            refreshIndicator.style.transform = `translateX(-50%) translateY(${topPos}px)`;
+
+            // Rotate spinner based on pull distance
+            const rotation = diff * 2;
+            const icon = refreshIndicator.querySelector('i');
+            if (icon) {
+                icon.style.transform = `rotate(${rotation}deg)`;
+                icon.style.display = 'block'; // Show icon while pulling
+            }
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', async () => {
+        if (!isPulling) return;
+        isPulling = false;
+
+        // Restore transition for smooth snap back
+        refreshIndicator.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.27)';
+
+        const diff = currentY - startY;
+
+        if (diff > threshold && window.scrollY === 0) {
+            // Trigger Refresh
+            refreshIndicator.classList.add('visible');
+            refreshIndicator.classList.add('loading');
+            refreshIndicator.style.transform = `translateX(-50%) translateY(20px)`; // Snap to visible position
+
+            const icon = refreshIndicator.querySelector('i');
+            if (icon) icon.style.transform = ''; // Reset inline rotation so animation takes over
+
+            try {
+                // await updateWeather(currentCity); // This function updates the UI
+                /* 
+                   Wait, updateWeather expects 'city' string. 
+                   If we are using location button, currentCity might be "Madrid" or "Madrigal de la Vera".
+                   It should work fine.
+                */
+                await updateWeather(currentCity);
+            } catch (err) {
+                console.error("Refresh failed", err);
+            } finally {
+                // Hide after small delay
+                setTimeout(() => {
+                    refreshIndicator.classList.remove('visible');
+                    refreshIndicator.classList.remove('loading');
+                    refreshIndicator.style.transform = 'translateX(-50%) translateY(-100px)';
+                    // Reset inline styles
+                    const icon = refreshIndicator.querySelector('i');
+                    if (icon) icon.style.display = '';
+                }, 500);
+            }
+
+        } else {
+            // Snap back
+            refreshIndicator.style.transform = 'translateX(-50%) translateY(-100px)';
+            const icon = refreshIndicator.querySelector('i');
+            if (icon) icon.style.display = '';
+        }
+
+        // Reset vars
+        startY = 0;
+        currentY = 0;
+    });
 }
 
 // Fire init when DOM is ready

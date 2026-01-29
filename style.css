@@ -28,6 +28,48 @@ body {
 }
 
 /* Background Effects */
+.refresh-indicator {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.27);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.refresh-indicator i {
+    color: var(--primary-neon);
+    font-size: 1.5rem;
+    animation: spin 1s linear infinite;
+    display: none;
+    /* Hidden by default until active */
+}
+
+.refresh-indicator.visible {
+    transform: translateX(-50%) translateY(20px);
+    /* Lower into view */
+}
+
+.refresh-indicator.loading i {
+    display: block;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
 .app-background {
     position: fixed;
     top: 0;
