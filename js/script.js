@@ -26,7 +26,7 @@ async function getCoordinates(city) {
 async function getRealWeatherData(lat, lon) {
     try {
         const response = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,rain,precipitation_probability&timezone=auto&past_days=1&forecast_days=2`
+            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,rain,precipitation_probability&timezone=auto&past_days=1&forecast_days=2&_t=${Date.now()}`
         );
         const data = await response.json();
         return data;
@@ -616,7 +616,9 @@ function initPullToRefresh() {
                    If we are using location button, currentCity might be "Madrid" or "Madrigal de la Vera".
                    It should work fine.
                 */
-                await updateWeather(currentCity);
+                const minWait = new Promise(resolve => setTimeout(resolve, 1000)); // Ensure at least 1s spinner
+                await Promise.all([updateWeather(currentCity), minWait]);
+
             } catch (err) {
                 console.error("Refresh failed", err);
             } finally {
