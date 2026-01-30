@@ -25,6 +25,7 @@ async function getCoordinates(city) {
 // Real Weather Data
 async function getRealWeatherData(lat, lon) {
     try {
+        // Reverted to original fields
         const response = await fetch(
             `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,rain,precipitation_probability,wind_speed_10m&timezone=auto&past_days=1&forecast_days=2&_t=${Date.now()}`
         );
@@ -34,41 +35,6 @@ async function getRealWeatherData(lat, lon) {
         console.error("Weather API Error:", error);
         throw error;
     }
-}
-
-// Simulation/Aggregation Logic
-function generateComparisonData(realData) {
-    const totalRainToday = calculateDailyRain(realData);
-
-    return {
-        openMeteo: {
-            name: "Open-Meteo",
-            rain: totalRainToday.toFixed(1),
-            confidence: "Alta"
-        },
-        aemet: {
-            name: "AEMET",
-            rain: (totalRainToday * (0.9 + Math.random() * 0.3)).toFixed(1),
-            diff: "Variación moderada"
-        },
-        google: {
-            name: "Google",
-            rain: (totalRainToday * (0.8 + Math.random() * 0.4)).toFixed(1),
-            diff: "Datos satelitales"
-        }
-    };
-}
-
-function calculateDailyRain(data) {
-    const hours = data.hourly.rain;
-    const start = 24;
-    const end = 48;
-
-    let sum = 0;
-    for (let i = start; i < end; i++) {
-        if (hours[i]) sum += hours[i];
-    }
-    return sum;
 }
 
 function processChartData(data) {
@@ -152,11 +118,8 @@ async function reverseGeocode(lat, lon) {
     }
 }
 
-
-
 async function updateWeatherByCoords(lat, lon) {
     try {
-        // Fetch weather first (Critical)
         const weatherData = await getRealWeatherData(lat, lon);
 
         // Try to get name, but don't block if it fails
@@ -169,11 +132,11 @@ async function updateWeatherByCoords(lat, lon) {
 
         currentCity = cityName;
         locationName.textContent = `${cityName}`;
-        updateUIWithData(weatherData); // Re-use UI update logic
+        updateUIWithData(weatherData);
     } catch (error) {
         console.error(error);
         locationName.textContent = "Error";
-        throw error; // Re-throw to be caught by the button handler
+        throw error;
     }
     updateTimestamp();
 }
@@ -187,27 +150,27 @@ const currentTemp = document.getElementById('currentTemp');
 const weatherDesc = document.getElementById('weatherDesc');
 const weatherIcon = document.getElementById('weatherIcon');
 const rain1h = document.getElementById('rain1h');
-const refreshIndicator = document.getElementById('refresh-indicator'); // Added for Pull to Refresh
+const refreshIndicator = document.getElementById('refresh-indicator');
 
 const windSpeed = document.getElementById('windSpeed');
 const locationBtn = document.getElementById('locationBtn');
 
 let rainChartInstance = null;
 let currentCity = "Madrigal de la Vera";
-let lastWeatherData = null; // Cache for switching views
+let lastWeatherData = null;
 let currentChartType = 'rain'; // 'rain', 'temp', 'wind'
 
 async function init() {
     console.log("App Initializing...");
 
-    // Create Last Updated Element if not exists (checked dynamically or added to HTML)
+    if (searchBtn) searchBtn.addEventListener('click', handleSearch);
+    if (locationBtn) locationBtn.addEventListener('click', handleLocationClick);
 
-    searchBtn.addEventListener('click', handleSearch);
-    locationBtn.addEventListener('click', handleLocationClick);
-
-    cityInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleSearch();
-    });
+    if (cityInput) {
+        cityInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSearch();
+        });
+    }
 
     // Tab Event Listeners
     document.querySelectorAll('.tab').forEach(btn => {
@@ -216,13 +179,21 @@ async function init() {
         });
     });
 
+    // Event Listeners for Stat Boxes
+    const statTemp = document.getElementById('stat-temp');
+    if (statTemp) statTemp.addEventListener('click', () => setChartType('temp'));
+
+    const statRain = document.getElementById('stat-rain');
+    if (statRain) statRain.addEventListener('click', () => setChartType('rain'));
+
+    const statWind = document.getElementById('stat-wind');
+    if (statWind) statWind.addEventListener('click', () => setChartType('wind'));
+
     // Load default city
     await updateWeather(currentCity);
 
-    // Event Listeners for Stat Boxes
-    document.getElementById('stat-temp').addEventListener('click', () => setChartType('temp'));
-    document.getElementById('stat-rain').addEventListener('click', () => setChartType('rain'));
-    document.getElementById('stat-wind').addEventListener('click', () => setChartType('wind'));
+    // Initialize Pull to Refresh
+    initPullToRefresh();
 
     // Auto-refresh every 1 hour (3600000 ms)
     setInterval(() => {
@@ -237,7 +208,6 @@ async function handleLocationClick() {
     try {
         const coords = await getBrowserLocation();
         await updateWeatherByCoords(coords.lat, coords.lon);
-        // Clear input to reflect we are using current loc
         cityInput.value = "";
     } catch (err) {
         alert("No se pudo obtener la ubicación: " + err.message);
@@ -283,17 +253,17 @@ async function updateWeather(city) {
 
 function updateUIWithData(weatherData) {
     const current = weatherData.current;
-    currentTemp.textContent = Math.round(current.temperature_2m);
-    windSpeed.textContent = `${current.wind_speed_10m} km/h`;
+    if (currentTemp) currentTemp.textContent = Math.round(current.temperature_2m);
+    if (windSpeed) windSpeed.textContent = `${current.wind_speed_10m} km/h`;
 
     const nowIso = new Date().toISOString().slice(0, 13);
     const hourIdx = weatherData.hourly.time.findIndex(t => t.startsWith(nowIso));
     const currentRainAmount = hourIdx !== -1 ? weatherData.hourly.rain[hourIdx] : 0;
-    rain1h.textContent = `${currentRainAmount} mm`;
+    if (rain1h) rain1h.textContent = `${currentRainAmount} mm`;
 
     const config = getWeatherConfig(current.weather_code);
-    weatherDesc.textContent = config.desc;
-    weatherIcon.className = `ph-fill ${config.icon}`;
+    if (weatherDesc) weatherDesc.textContent = config.desc;
+    if (weatherIcon) weatherIcon.className = `ph-fill ${config.icon}`;
 
     const chartData = processChartData(weatherData);
     updateChart(chartData);
@@ -307,12 +277,15 @@ function updateTimestamp() {
 }
 
 function setChartType(type) {
+    console.log("Switching chart to:", type);
     if (currentChartType === type) return;
     currentChartType = type;
 
     // Update Active UI
     document.querySelectorAll('.stat-item.clickable').forEach(el => el.classList.remove('active'));
-    document.getElementById(`stat-${type}`).classList.add('active');
+
+    const activeEl = document.getElementById(`stat-${type}`);
+    if (activeEl) activeEl.classList.add('active');
 
     // Update Chart
     if (lastWeatherData) {
@@ -327,7 +300,9 @@ function setChartType(type) {
 }
 
 function updateChart({ labels, rainData, probData, tempData, windData, currentRelIndex }) {
-    const ctx = document.getElementById('rainChart').getContext('2d');
+    const ctxEl = document.getElementById('rainChart');
+    if (!ctxEl) return;
+    const ctx = ctxEl.getContext('2d');
 
     if (rainChartInstance) {
         rainChartInstance.destroy();
@@ -352,7 +327,6 @@ function updateChart({ labels, rainData, probData, tempData, windData, currentRe
             ctx.lineTo(xPos, bottom);
             ctx.stroke();
 
-            // Optional: Add "AHORA" label
             ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.font = '10px Inter';
             ctx.textAlign = 'center';
@@ -471,6 +445,9 @@ function updateChart({ labels, rainData, probData, tempData, windData, currentRe
         }];
     }
 
+    const hourlyBtn = document.querySelector('.tab[data-view="hourly"]');
+    const isHourly = hourlyBtn && hourlyBtn.classList.contains('active');
+
     rainChartInstance = new Chart(ctx, {
         type: 'bar', // Default, mixed type handling in datasets
         data: {
@@ -493,7 +470,7 @@ function updateChart({ labels, rainData, probData, tempData, windData, currentRe
                     index: currentRelIndex
                 },
                 hourlyDetails: {
-                    display: document.querySelector('.tab[data-view="hourly"]').classList.contains('active')
+                    display: isHourly
                 }
             },
             scales: {
@@ -543,25 +520,23 @@ function switchView(viewType) {
     });
 
     if (viewType === 'hourly') {
-        chartContainer.classList.add('scroll-active');
-        chartScrollWrapper.classList.add('expanded');
+        if (chartContainer) chartContainer.classList.add('scroll-active');
+        if (chartScrollWrapper) chartScrollWrapper.classList.add('expanded');
 
         // Enable detailed labels
         if (rainChartInstance) {
             rainChartInstance.options.plugins.hourlyDetails.display = true;
-            rainChartInstance.update(); // Update to render labels and new size
-            // Resize logic is handled by Chart.js observing container, but sometimes needs explicit call if container animates
+            rainChartInstance.update();
             rainChartInstance.resize();
         }
 
-        // Auto-scroll to "Now"
         setTimeout(() => {
             scrollToCurrentTime();
         }, 350);
 
     } else {
-        chartContainer.classList.remove('scroll-active');
-        chartScrollWrapper.classList.remove('expanded');
+        if (chartContainer) chartContainer.classList.remove('scroll-active');
+        if (chartScrollWrapper) chartScrollWrapper.classList.remove('expanded');
 
         // Disable detailed labels
         if (rainChartInstance) {
@@ -570,7 +545,7 @@ function switchView(viewType) {
             rainChartInstance.resize();
         }
 
-        chartContainer.scrollLeft = 0;
+        if (chartContainer) chartContainer.scrollLeft = 0;
     }
 }
 
@@ -586,6 +561,8 @@ function scrollToCurrentTime() {
 
     if (currentIndex >= 0 && totalPoints > 0) {
         const container = document.getElementById('chartContainer');
+        if (!container) return;
+
         const scrollWidth = container.scrollWidth;
         const clientWidth = container.clientWidth;
 
@@ -601,48 +578,19 @@ function scrollToCurrentTime() {
 }
 
 
-async function init() {
-    console.log("App Initializing...");
-
-    // Create Last Updated Element if not exists (checked dynamically or added to HTML)
-
-    searchBtn.addEventListener('click', handleSearch);
-    cityInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleSearch();
-    });
-
-    // Tab Event Listeners
-    document.querySelectorAll('.tab').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            switchView(e.target.dataset.view);
-        });
-    });
-
-    await updateWeather(currentCity);
-
-    // Initialize Pull to Refresh
-    initPullToRefresh();
-
-    // Auto-refresh every 1 hour (3600000 ms)
-    setInterval(() => {
-        console.log(`Auto-refreshing weather for: ${currentCity}`);
-        updateWeather(currentCity);
-    }, 3600000);
-}
-
 function initPullToRefresh() {
     let startY = 0;
-    let currentY = 0; // Track current Y to calculate distance correctly
+    let currentY = 0;
     let isPulling = false;
-    const threshold = 100; // px to trigger refresh
+    const threshold = 100;
+
+    if (!refreshIndicator) return;
 
     document.addEventListener('touchstart', (e) => {
-        // Only trigger if at top of page. Check both window and document element for compatibility.
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
         if (scrollTop <= 0) {
             startY = e.touches[0].clientY;
             isPulling = true;
-            // No transition while pulling for instant feedback
             refreshIndicator.style.transition = 'none';
         } else {
             isPulling = false;
@@ -655,25 +603,17 @@ function initPullToRefresh() {
         currentY = e.touches[0].clientY;
         const diff = currentY - startY;
 
-        // Only allow pulling down (positive diff)
         if (diff > 0) {
-            // Visualize the pull
-            // Add resistance: log or sqrt
-            const resistance = Math.min(diff * 0.4, 150); // Cap max pull
-
-            // Move the indicator down into view (it starts at -100px)
-            // We want it to appear as we pull. 
-            // -100 + resistance (e.g. up to 150) -> max 50px
+            const resistance = Math.min(diff * 0.4, 150);
             const topPos = -100 + resistance;
 
             refreshIndicator.style.transform = `translateX(-50%) translateY(${topPos}px)`;
 
-            // Rotate spinner based on pull distance
             const rotation = diff * 2;
             const icon = refreshIndicator.querySelector('i');
             if (icon) {
                 icon.style.transform = `rotate(${rotation}deg)`;
-                icon.style.display = 'block'; // Show icon while pulling
+                icon.style.display = 'block';
             }
         }
     }, { passive: true });
@@ -682,54 +622,41 @@ function initPullToRefresh() {
         if (!isPulling) return;
         isPulling = false;
 
-        // Restore transition for smooth snap back
         refreshIndicator.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.27)';
 
         const diff = currentY - startY;
-
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
 
         if (diff > threshold && scrollTop <= 0) {
-            // Trigger Refresh
             refreshIndicator.classList.add('visible');
             refreshIndicator.classList.add('loading');
-            refreshIndicator.style.transform = `translateX(-50%) translateY(20px)`; // Snap to visible position
+            refreshIndicator.style.transform = `translateX(-50%) translateY(20px)`;
 
             const icon = refreshIndicator.querySelector('i');
-            if (icon) icon.style.transform = ''; // Reset inline rotation so animation takes over
+            if (icon) icon.style.transform = '';
 
             try {
-                // await updateWeather(currentCity); // This function updates the UI
-                /* 
-                   Wait, updateWeather expects 'city' string. 
-                   If we are using location button, currentCity might be "Madrid" or "Madrigal de la Vera".
-                   It should work fine.
-                */
-                const minWait = new Promise(resolve => setTimeout(resolve, 1000)); // Ensure at least 1s spinner
+                const minWait = new Promise(resolve => setTimeout(resolve, 1000));
                 await Promise.all([updateWeather(currentCity), minWait]);
 
             } catch (err) {
                 console.error("Refresh failed", err);
             } finally {
-                // Hide after small delay
                 setTimeout(() => {
                     refreshIndicator.classList.remove('visible');
                     refreshIndicator.classList.remove('loading');
                     refreshIndicator.style.transform = 'translateX(-50%) translateY(-100px)';
-                    // Reset inline styles
                     const icon = refreshIndicator.querySelector('i');
                     if (icon) icon.style.display = '';
                 }, 500);
             }
 
         } else {
-            // Snap back
             refreshIndicator.style.transform = 'translateX(-50%) translateY(-100px)';
             const icon = refreshIndicator.querySelector('i');
             if (icon) icon.style.display = '';
         }
 
-        // Reset vars
         startY = 0;
         currentY = 0;
     });

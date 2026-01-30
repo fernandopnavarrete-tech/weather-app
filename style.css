@@ -284,6 +284,8 @@ html {
     cursor: pointer;
     border: 1px solid transparent;
     /* Prevent layout shift */
+    z-index: 10;
+    position: relative;
 }
 
 .stat-item.compact.clickable:hover {
