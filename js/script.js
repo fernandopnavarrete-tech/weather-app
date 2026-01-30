@@ -26,7 +26,7 @@ async function getCoordinates(city) {
 async function getRealWeatherData(lat, lon) {
     try {
         const response = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,rain,precipitation_probability&timezone=auto&past_days=1&forecast_days=2&_t=${Date.now()}`
+            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,rain,precipitation_probability,wind_speed_10m&timezone=auto&past_days=1&forecast_days=2&_t=${Date.now()}`
         );
         const data = await response.json();
         return data;
@@ -100,11 +100,13 @@ function processChartData(data) {
     });
 
     const probData = data.hourly.precipitation_probability.slice(start, end);
+    const tempData = data.hourly.temperature_2m.slice(start, end);
+    const windData = data.hourly.wind_speed_10m.slice(start, end);
 
     // Calculate relative index for the "Now" line
     const currentRelIndex = activeIndex - start;
 
-    return { labels, rainData, probData, currentRelIndex };
+    return { labels, rainData, probData, tempData, windData, currentRelIndex };
 }
 
 function getWeatherConfig(code) {
@@ -192,6 +194,8 @@ const locationBtn = document.getElementById('locationBtn');
 
 let rainChartInstance = null;
 let currentCity = "Madrigal de la Vera";
+let lastWeatherData = null; // Cache for switching views
+let currentChartType = 'rain'; // 'rain', 'temp', 'wind'
 
 async function init() {
     console.log("App Initializing...");
@@ -214,6 +218,11 @@ async function init() {
 
     // Load default city
     await updateWeather(currentCity);
+
+    // Event Listeners for Stat Boxes
+    document.getElementById('stat-temp').addEventListener('click', () => setChartType('temp'));
+    document.getElementById('stat-rain').addEventListener('click', () => setChartType('rain'));
+    document.getElementById('stat-wind').addEventListener('click', () => setChartType('wind'));
 
     // Auto-refresh every 1 hour (3600000 ms)
     setInterval(() => {
@@ -259,7 +268,7 @@ async function updateWeather(city) {
         locationName.textContent = `${location.name}, ${location.country}`;
 
         const weatherData = await getRealWeatherData(location.latitude, location.longitude);
-
+        lastWeatherData = weatherData; // Save for switching
         updateUIWithData(weatherData);
 
         currentCity = city;
@@ -297,7 +306,27 @@ function updateTimestamp() {
     if (lastUpdEl) lastUpdEl.textContent = timeString;
 }
 
-function updateChart({ labels, rainData, probData, currentRelIndex }) {
+function setChartType(type) {
+    if (currentChartType === type) return;
+    currentChartType = type;
+
+    // Update Active UI
+    document.querySelectorAll('.stat-item.clickable').forEach(el => el.classList.remove('active'));
+    document.getElementById(`stat-${type}`).classList.add('active');
+
+    // Update Chart
+    if (lastWeatherData) {
+        const chartData = processChartData(lastWeatherData);
+        updateChart(chartData);
+
+        // Allow time for chart destroy/create then scroll
+        setTimeout(() => {
+            scrollToCurrentTime();
+        }, 50);
+    }
+}
+
+function updateChart({ labels, rainData, probData, tempData, windData, currentRelIndex }) {
     const ctx = document.getElementById('rainChart').getContext('2d');
 
     if (rainChartInstance) {
@@ -346,64 +375,107 @@ function updateChart({ labels, rainData, probData, currentRelIndex }) {
 
             // Dataset 0: Rain (Bar), Dataset 1: Prob (Line)
             const metaRain = chart.getDatasetMeta(0);
-            const metaProb = chart.getDatasetMeta(1);
 
             ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
             ctx.font = 'bold 12px Inter';
 
-            metaRain.data.forEach((element, index) => {
-                // Skip if hidden
-                if (element.hidden) return;
-
-                // 1. Draw Rain Amount (mm) inside or above bar
-                const rainVal = chart.data.datasets[0].data[index];
-                if (rainVal !== null && rainVal > 0) {
-                    ctx.fillStyle = '#00f2ff'; // Cyan
-                    // Draw slightly above the bar
-                    ctx.fillText(`${rainVal}mm`, element.x, element.y - 5);
-                }
-
-                // 2. Draw Probability (%) above everything (top of chart area usually, or following line)
-                const probVal = chart.data.datasets[1].data[index];
-                const probPoint = metaProb.data[index];
-                if (probPoint && probVal !== null) {
-                    ctx.fillStyle = '#7000ff'; // Purple
-                    // Draw above the point
-                    ctx.fillText(`${probVal}%`, probPoint.x, probPoint.y - 10);
-                }
-            });
+            if (currentChartType === 'rain') {
+                const metaProb = chart.getDatasetMeta(1);
+                metaRain.data.forEach((element, index) => {
+                    if (element.hidden) return;
+                    const rainVal = chart.data.datasets[0].data[index];
+                    if (rainVal !== null && rainVal > 0) {
+                        ctx.fillStyle = '#00f2ff';
+                        ctx.fillText(`${rainVal}mm`, element.x, element.y - 5);
+                    }
+                    const probVal = chart.data.datasets[1].data[index];
+                    const probPoint = metaProb.data[index];
+                    if (probPoint && probVal !== null) {
+                        ctx.fillStyle = '#7000ff';
+                        ctx.fillText(`${probVal}%`, probPoint.x, probPoint.y - 10);
+                    }
+                });
+            } else {
+                metaRain.data.forEach((element, index) => {
+                    const val = chart.data.datasets[0].data[index];
+                    if (val !== null) {
+                        ctx.fillStyle = chart.data.datasets[0].borderColor;
+                        ctx.fillText(`${val}`, element.x, element.y - 10);
+                    }
+                });
+            }
 
             ctx.restore();
         }
     };
 
+    // Configure Datasets based on Type
+    let datasets = [];
+    let y1Display = false; // Only for Rain (Probability)
+
+    if (currentChartType === 'rain') {
+        datasets = [
+            {
+                label: 'Lluvia (mm)',
+                data: rainData,
+                backgroundColor: 'rgba(0, 242, 255, 0.6)',
+                borderColor: '#00f2ff',
+                borderWidth: 1,
+                yAxisID: 'y',
+                type: 'bar',
+                order: 2
+            },
+            {
+                label: 'Probabilidad (%)',
+                data: probData,
+                type: 'line',
+                borderColor: '#7000ff',
+                backgroundColor: 'rgba(112, 0, 255, 0.1)',
+                yAxisID: 'y1',
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#1a237e',
+                order: 1
+            }
+        ];
+        y1Display = true;
+
+    } else if (currentChartType === 'temp') {
+        datasets = [{
+            label: 'Temperatura (°C)',
+            data: tempData,
+            type: 'line',
+            borderColor: '#ff9800', // Orange
+            backgroundColor: 'rgba(255, 152, 0, 0.2)',
+            fill: true,
+            yAxisID: 'y',
+            tension: 0.4,
+            pointRadius: 4,
+            pointBackgroundColor: '#fff'
+        }];
+
+    } else if (currentChartType === 'wind') {
+        datasets = [{
+            label: 'Viento (km/h)',
+            data: windData,
+            type: 'line',
+            borderColor: '#00e676', // Green
+            backgroundColor: 'rgba(0, 230, 118, 0.2)',
+            fill: true,
+            yAxisID: 'y',
+            tension: 0.4,
+            pointRadius: 4,
+            pointBackgroundColor: '#fff'
+        }];
+    }
+
     rainChartInstance = new Chart(ctx, {
-        type: 'bar',
+        type: 'bar', // Default, mixed type handling in datasets
         data: {
             labels: labels,
-            datasets: [
-                {
-                    label: 'Lluvia (mm)',
-                    data: rainData,
-                    backgroundColor: 'rgba(0, 242, 255, 0.6)',
-                    borderColor: '#00f2ff',
-                    borderWidth: 1,
-                    yAxisID: 'y'
-                },
-                {
-                    label: 'Probabilidad (%)',
-                    data: probData,
-                    type: 'line',
-                    borderColor: '#7000ff',
-                    backgroundColor: 'rgba(112, 0, 255, 0.1)',
-                    yAxisID: 'y1',
-                    tension: 0.4,
-                    pointRadius: 4, // Make points visible in detailed view (will toggle size later if needed)
-                    pointBackgroundColor: '#1a237e'
-                }
-            ]
+            datasets: datasets
         },
         options: {
             responsive: true,
@@ -414,13 +486,14 @@ function updateChart({ labels, rainData, probData, currentRelIndex }) {
             },
             plugins: {
                 legend: {
-                    labels: { color: '#fff' }
+                    labels: { color: '#fff' },
+                    display: true
                 },
                 nowLine: {
-                    index: currentRelIndex // Pass the calculated index to the plugin
+                    index: currentRelIndex
                 },
                 hourlyDetails: {
-                    display: false // Default off (24h view)
+                    display: document.querySelector('.tab[data-view="hourly"]').classList.contains('active')
                 }
             },
             scales: {
@@ -433,11 +506,16 @@ function updateChart({ labels, rainData, probData, currentRelIndex }) {
                     display: true,
                     position: 'left',
                     ticks: { color: '#aaa' },
-                    grid: { color: 'rgba(255,255,255,0.05)' }
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    title: {
+                        display: true,
+                        text: currentChartType === 'rain' ? 'mm' : (currentChartType === 'temp' ? '°C' : 'km/h'),
+                        color: '#aaa'
+                    }
                 },
                 y1: {
                     type: 'linear',
-                    display: true,
+                    display: y1Display,
                     position: 'right',
                     min: 0,
                     max: 100,

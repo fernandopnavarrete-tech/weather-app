@@ -280,6 +280,24 @@ html {
     margin-bottom: 0.2rem;
 }
 
+.stat-item.compact.clickable {
+    cursor: pointer;
+    border: 1px solid transparent;
+    /* Prevent layout shift */
+}
+
+.stat-item.compact.clickable:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.stat-item.compact.clickable.active {
+    background: rgba(0, 242, 255, 0.1);
+    /* Subtle primary tint */
+    border-color: var(--primary-neon);
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.15);
+}
+
 /* Specific color for weather icon to stand out */
 #weatherIcon {
     background: linear-gradient(45deg, var(--primary-neon), var(--secondary-neon));
